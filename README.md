@@ -51,6 +51,5 @@ Before you begin, ensure you have met the following requirements:
 
 [Specify the license for your project, e.g., MIT, Apache 2.0, GPLv3. If you don't have one, consider adding one.]
 
-## Contact
-
-[Provide a way for users to contact you if they have questions or issues, e.g., email address or a link to an issue tracker.]
+## Shoulders of Giants
+Context Window Architecture would not be possible if not for all of the great research, development, and thought leadership of others. Please see [SHOULDERS.md](SHOULDERS.md) to see a list of them.
