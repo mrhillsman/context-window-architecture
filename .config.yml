@@ -1,0 +1,55 @@
+# db is the top-level key used to provide two objects for
+# creating a sqlite3 database and chromadb vector database
+db:
+  sql:
+    dir: "db"
+    file: "store.db"
+  vector:
+    dir: "db"
+    file: "vectordb"
+
+# llm_config is the top-level key used throughout the project
+# for configuring the LLMs used and their hyperparameters
+llm_config:
+  chat_model: "gemini-2.5-flash-preview-05-20"
+  summary_model: "gemini-2.0-flash"
+  rag_model: "gemini-2.0-flash"
+  temperature: 0.0
+
+# chat_history_config is the top-level key for configuring
+# the strategy for managing the chat history
+chat_history_config:
+  # max_history_pairs limits the number of multi-turn conversations
+  # in the chat history; this also helps with summarization allowing
+  # summarization to be triggered once max_history_pairs is reached
+  max_history_pairs: 2
+  # max_characters strategy to limit history based on the number of characters
+  max_characters: 1000
+  # max_tokens strategy to limit history based on the number of tokens
+  max_tokens: 2000
+
+# agent_config is the top-level key for configuring agents throughout the project
+agent_config:
+  max_function_calls: 3
+
+# vectordb_config is the top-level key for configuring the chroma vector database
+vectordb_config:
+  collection_name: "chat_history"
+  embedding_model: "gemini-embedding-exp"
+  k: 5
+
+# chatbot determines the chatbot loaded during project execution
+chatbot:
+  # type: "basic"
+  # type: "basic_memory"
+  type: "agentic"
+  # type: "semantic"
+  # type: "langgraph"
+  # type: "letta"
+
+chatbot_configs:
+  basic:
+    page:
+      title: ""
+      icon: ""
+      layout: ""

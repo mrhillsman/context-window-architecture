@@ -1,0 +1,3 @@
+[browser]
+# Default: true
+gatherUsageStats = false
