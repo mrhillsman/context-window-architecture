@@ -1,4 +1,4 @@
-# Context Window Model
+# Context Window Architecture
 
 ## Overview
 
