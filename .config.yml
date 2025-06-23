@@ -8,6 +8,15 @@ db:
     dir: "db"
     file: "vectordb"
 
+# use local ollama service
+ollama:
+  enabled: true
+  host: "http://localhost:11434"
+  chat_model: "llama3.2:3b-instruct-fp16"
+  agent_model: "deepseek-r1:8b"
+  options:
+    temperature: 0.1
+
 # llm_config is the top-level key used throughout the project
 # for configuring the LLMs used and their hyperparameters
 llm_config:
@@ -40,9 +49,9 @@ vectordb_config:
 
 # chatbot determines the chatbot loaded during project execution
 chatbot:
-  # type: "basic"
-  # type: "basic_memory"
-  type: "agentic"
+  #type: "basic"
+  type: "basic_memory"
+  # type: "agentic"
   # type: "semantic"
   # type: "langgraph"
   # type: "letta"

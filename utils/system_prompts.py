@@ -1,45 +1,45 @@
-def system_prompt_for_basic_ui_chat_with_memory(user_info: str, chat_summary: str, chat_history: str) -> str:
+def system_prompt_for_basic_ui_chat_with_memory(user_info: str, chat_summary: str, chat_history: list[dict]) -> str:
     """
-    Prepare system prompt for basic UI chat with memory capabilities.
-
+    Create system prompt following Context Window Model layers 1, 2, 5, 6.
+    
     Args:
-        user_info (str): Information about the user
-        chat_summary (str): Summary of previous conversation history
-        chat_history (str): Recent conversation history
-
+        user_info (str): User profile/preferences (Layer 2)
+        chat_summary (str): Condensed conversation history (Layer 5)
+        chat_history (list[dict]): Recent message exchanges (Layer 6)
+    
     Returns:
-        str: Formatted system prompt for basic memory chatbot
+        str: CWA-structured system prompt
     """
-    prompt = """
-    You are a helpful and professional assistant with memory capabilities.
+    # Format chat history from list of dicts to readable string
+    formatted_history = ""
+    if chat_history:
+        messages = []
+        for msg in chat_history:
+            if 'user' in msg:
+                messages.append(f"User: {msg['user']}")
+            elif 'assistant' in msg:
+                messages.append(f"Assistant: {msg['assistant']}")
+        formatted_history = "\n".join(messages)
+    else:
+        formatted_history = "No previous messages."
+    
+    # Layer 1: Instructions (primacy position for core directives)
+    # Layer 2: User Info (personalization context)
+    # Layer 5: Chat History Summary (long-term memory)
+    # Layer 6: Chat History (recent conversational flow)
+    prompt = f"""## Core Directives
+You are a helpful assistant with persistent memory. Maintain conversation continuity, provide accurate responses, and reference past interactions when relevant.
 
-    You are assisting the following user:
+## User Profile
+{user_info}
 
-    {user_info}
+## Conversation Summary
+{chat_summary if chat_summary else "No previous conversations."}
 
-    Here is a summary of the previous conversation history:
-
-    {chat_summary}
-
-    Here is the previous conversation between you and the user:
-
-    {chat_history}
-
-    Guidelines:
-    - Provide helpful, accurate, and relevant responses to user queries
-    - Maintain conversation context using the provided history and summary
-    - Be professional yet friendly in your interactions
-    - Remember details from previous conversations to provide personalized assistance
-    - Ask follow-up questions when clarification would be helpful
-    - Use the conversation history to provide contextually relevant responses
-    - Reference previous topics when appropriate to maintain conversation flow
-    """
-
-    return prompt.format(
-        user_info=user_info,
-        chat_summary=chat_summary,
-        chat_history=chat_history,
-    )
+## Recent Messages
+{formatted_history}"""
+    
+    return prompt
 
 
 def system_prompt_for_agentic_ui_chat(user_info: str, chat_summary: str, chat_history: str, function_call_result_section: str) -> str:

@@ -45,8 +45,9 @@ import streamlit as st
 
 from utils.chat_history_manager import ChatHistoryManager
 from utils.sqldb_manager import SQLManager
-from utils.system_prompt import system_prompt_for_basic_ui_chat_with_memory
+from utils.system_prompts import system_prompt_for_basic_ui_chat_with_memory
 from utils.user_manager import UserManager
+from utils.ollama_manager import OllamaManager
 
 with open(here('.config.yml'), 'r') as file:
     config = Box(yaml.safe_load(file))
@@ -66,10 +67,6 @@ def init_session_state() -> None:
 
     Returns:
         None
-
-    Example:
-        >>> init_session_state()
-        # Session state variables are now initialized
     """
     # Initialize empty message history for storing chat conversations
     if 'messages' not in st.session_state:
@@ -79,10 +76,6 @@ def init_session_state() -> None:
     if 'gemini_api_key' not in st.session_state:
         st.session_state.gemini_api_key = os.getenv("GEMINI_API_KEY", "")
 
-    # Initialize model instance holder
-    if 'model' not in st.session_state:
-        st.session_state.model = None
-
     # Initialize chat session holder
     if 'chat' not in st.session_state:
         st.session_state.chat = None
@@ -91,6 +84,10 @@ def init_session_state() -> None:
     if 'session_id' not in st.session_state:
         import uuid
         st.session_state.session_id = str(uuid.uuid4())
+
+    # Initialize ollama manager
+    if 'ollama' not in st.session_state:
+        st.session_state.ollama = None
 
     # Initialize managers in the session state
     if 'sqldb_manager' not in st.session_state:
@@ -123,11 +120,6 @@ def initialize_gemini(api_key: str) -> bool:
         - Updates st.session_state.model with initialized model
         - Updates st.session_state.chat with new chat session
         - Displays error messages in Streamlit interface on failure
-
-    Example:
-        >>> success = initialize_gemini("your-api-key")
-        >>> if success:
-                print("Gemini initialized successfully")
     """
     if not api_key:
         return False
@@ -167,11 +159,6 @@ def get_gemini_response(system_prompt: str, prompt: str) -> str:
         - RATE_LIMIT_EXCEEDED: Too many requests in a short time
         - SAFETY: Content blocked by safety filters
         - General exceptions: Network issues, timeouts, etc.
-
-    Example:
-        >>> resp = get_gemini_response("Hello, how are you?")
-        >>> print(resp)
-        "Hello! I'm doing well, thank you for asking..."
     """
     # Ensure chat session is properly initialized
     if not st.session_state.chat:
@@ -204,6 +191,40 @@ def get_gemini_response(system_prompt: str, prompt: str) -> str:
         return error_msg
 
 
+def initialize_ollama():
+    try:
+        # Create a new instance of the ollama wrapper class
+        st.session_state.ollama = OllamaManager(
+            host=config.ollama.host,
+            model=config.ollama.chat_model,
+            options=dict(config.ollama.options)
+        )
+
+        return True
+
+    except Exception as e:
+        # Display user-friendly error message in the Streamlit interface
+        st.error(f"Failed to initialize Ollama: {str(e)}")
+        return False
+
+
+def get_ollama_response(prompt: str) -> str:
+    try:
+        messages = []
+
+        for message in st.session_state.messages:
+            messages.append({"role": message["role"], "content": message["content"]})
+
+        messages.append({"role": "user", "content": prompt})
+
+        response = st.session_state.ollama.chat(messages)
+
+        return response.message.content
+    except Exception as e:
+        # Return the error message
+        return f"❌ Error: {str(e)}"
+
+
 def main() -> None:
     """
     Main application function that sets up and runs the Streamlit chat interface.
@@ -219,10 +240,6 @@ def main() -> None:
 
     Returns:
         None
-
-    Example:
-        >>> main()
-        # Streamlit app starts running with the chat interface
     """
     # Configure the Streamlit page with title, icon, and layout
     st.set_page_config(
@@ -238,19 +255,7 @@ def main() -> None:
     sqldb_manager = st.session_state.sqldb_manager
     user_manager = st.session_state.user_manager
 
-    # Initialize chat_history_manager only once or when the chat client changes
-    if (st.session_state.chat_history_manager is None or
-            st.session_state.chat_history_manager.client != st.session_state.chat):
-        st.session_state.chat_history_manager = ChatHistoryManager(
-            sqldb_manager,
-            user_manager.user_id,
-            st.session_state.session_id,
-            st.session_state.chat,
-            config.llm_config.summary_model,
-            config.chat_history_config.max_tokens
-        )
-
-    chat_history_manager = st.session_state.chat_history_manager
+    
 
     # === SIDEBAR CONFIGURATION ===
     with st.sidebar:
@@ -276,8 +281,10 @@ def main() -> None:
                     st.error("❌ Failed to initialize Gemini")
 
         # Initialize on the first load if an API key exists but the model isn't initialized
-        if api_key and not st.session_state.chat:
+        if api_key and not config.ollama.enabled:
             initialize_gemini(api_key)
+        else:
+            initialize_ollama()
 
         # Display API key status and guidance
         if not api_key:
@@ -295,8 +302,8 @@ def main() -> None:
         if st.button("🗑️ Clear Chat History", use_container_width=True):
             st.session_state.messages = []
             # Reinitialize the chat session to start fresh
-            # if st.session_state.chat:
-            #     st.session_state.chat = st.session_state.model.start_chat(history=[])
+            if st.session_state.chat:
+                st.session_state.chat = None
             st.rerun()
 
         # Display chat statistics
@@ -315,6 +322,22 @@ def main() -> None:
         else:
             st.caption("🔴 Disconnected")
 
+        # Initialize chat_history_manager only once or when the chat client changes
+    
+        
+    if (st.session_state.chat_history_manager is None):
+        st.session_state.chat_history_manager = ChatHistoryManager(
+            sqldb_manager,
+            user_manager.user_id,
+            st.session_state.session_id,
+            st.session_state.chat,
+            st.session_state.ollama,
+            config.llm_config.summary_model,
+            config.chat_history_config.max_tokens
+        )
+
+    chat_history_manager = st.session_state.chat_history_manager
+
     # === MAIN CHAT INTERFACE ===
     st.title("💬 Basic Chat with LTM")
     st.markdown("A simple chat interface powered by Google Gemini")
@@ -326,11 +349,11 @@ def main() -> None:
 
     # Chat input handling
     # The walrus operator := captures the input while checking if it exists
-    if prompt := st.chat_input("Type your message here..." if api_key else "Please set your API key first"):
+    if prompt := st.chat_input("Type your message here..." if api_key or config.ollama.enabled else "Please set your API key first"):
         # Validate prerequisites before processing the message
-        if not st.session_state.gemini_api_key:
+        if not st.session_state.gemini_api_key and not config.ollama.enabled:
             st.error("❌ Please configure your Gemini API key in the sidebar")
-        elif not st.session_state.chat:
+        elif not st.session_state.chat and not config.ollama.enabled:
             st.error("❌ Gemini not initialized. Please check your API key.")
         else:
 
@@ -345,8 +368,11 @@ def main() -> None:
                     system_prompt = system_prompt_for_basic_ui_chat_with_memory(user_manager.user_info,
                                                                                 previous_summary,
                                                                                 chat_history_manager.chat_history)
-                    # Get a response from the Gemini model
-                    response = get_gemini_response(system_prompt, prompt)
+                    if config.ollama.enabled:
+                        response = get_ollama_response(f"{system_prompt}\n\n{prompt}")
+                    else:
+                        # Get a response from the Gemini model
+                        response = get_gemini_response(system_prompt, prompt)
                     st.markdown(response)
                     # Add user prompt and assistant response to chat for user visibility
                     st.session_state.messages.append({"role": "user", "content": prompt})
@@ -355,10 +381,8 @@ def main() -> None:
                     # Add user prompt and assistant response to chat history for context
                     chat_history_manager.add_to_history(prompt, response, config.chat_history_config.max_history_pairs)
                     chat_history_manager.update_chat_summary(config.chat_history_config.max_history_pairs)
-                    print(f"User prompt: {prompt}\n")
-                    print(f"System prompt:\n{system_prompt}")
+                    print(f"User prompt: {prompt}\nSystem prompt: \n{system_prompt}")
 
 
-# Entry point for the application
 if __name__ == "__main__":
     main()

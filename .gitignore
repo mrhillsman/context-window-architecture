@@ -1,5 +1,6 @@
+.cursor
 .env
 .idea
 
+db
 tmp
-

@@ -3,15 +3,22 @@ from utils.sqldb_manager import SQLManager
 from utils.utils import Utils
 import json
 from google import genai
+from utils.ollama_manager import OllamaManager
+from box import Box
+import yaml
+from pyprojroot import here
 
+with open(here('.config.yml'), 'r') as file:
+    config = Box(yaml.safe_load(file))
 
 class ChatHistoryManager:
     """
     Manages chat history and summarization for a user session.
     """
 
-    def __init__(self, sql_manager: SQLManager, user_id: str, session_id: str, client: genai.Client, summary_model: str, max_tokens: int) -> None:
-        self.client = client
+    def __init__(self, sql_manager: SQLManager, user_id: str, session_id: str, gemini_client: genai.Client, ollama_client: OllamaManager, summary_model: str, max_tokens: int) -> None:
+        self.gemini_client = gemini_client
+        self.ollama_client = ollama_client
         self.summary_model = summary_model
         self.max_tokens = max_tokens
         self.sql_manager = sql_manager
@@ -19,6 +26,7 @@ class ChatHistoryManager:
         self.session_id = session_id
         self.chat_history = []
         self.pairs_since_last_summary = 0  # Track pairs that have been added since the last summary
+
 
     def add_to_history(self, user_message: str, assistant_response: str, max_history_pairs: int) -> None:
         """
@@ -52,6 +60,7 @@ class ChatHistoryManager:
                 str(self.chat_history))
             print("\nNew number of tokens:", chat_history_token_count)
 
+
     def save_to_db(self, user_message: str, assistant_response: str) -> None:
         """
         Saves a user message and assistant response to the database.
@@ -69,6 +78,7 @@ class ChatHistoryManager:
         """
         self.sql_manager.execute_query(
             query, (self.user_id, user_message, assistant_response, self.session_id))
+
 
     def get_latest_chat_pairs(self, num_pairs: int) -> List[tuple]:
         """
@@ -91,12 +101,13 @@ class ChatHistoryManager:
         # Reverse to maintain chronological order
         return list(reversed(chat_data))
 
-    def get_latest_summary(self) -> Optional[str]:
+
+    def get_latest_summary(self) -> str:
         """
         Retrieves the latest summary for the current session from the database.
 
         Returns:
-            Optional[str]: The latest summary or None if no summary exists.
+            Optional[str]: The latest summary or "" if no summary exists.
         """
         query = """
             SELECT summary_text FROM summary
@@ -104,7 +115,8 @@ class ChatHistoryManager:
         """
         summary = self.sql_manager.execute_query(
             query, (self.session_id,), fetch_one=True)
-        return summary[0] if summary else None
+        return summary[0] if summary else ""
+
 
     def save_summary_to_db(self, summary_text: str) -> None:
         """
@@ -122,6 +134,7 @@ class ChatHistoryManager:
         self.sql_manager.execute_query(
             query, (self.user_id, self.session_id, summary_text))
         print("Summary saved to database.")
+
 
     def update_chat_summary(self, max_history_pairs: int) -> None:
         """
@@ -145,7 +158,7 @@ class ChatHistoryManager:
             return None
 
         summary_text = self.generate_the_new_summary(
-            self.client, self.summary_model, chat_data, previous_summary)
+            self.gemini_client, self.ollama_client, self.summary_model, chat_data, previous_summary)
         # print("Generated summary:", summary_text)
 
         if summary_text:
@@ -155,9 +168,11 @@ class ChatHistoryManager:
             return None
         return None
 
+
     @staticmethod
     def generate_the_new_summary(
-        client: genai.Client,
+        gemini_client: genai.Client,
+        ollama_client: OllamaManager,
         summary_model: str,
         chat_data: List[tuple],
         previous_summary: Optional[str]
@@ -187,18 +202,21 @@ class ChatHistoryManager:
             summary_prompt += f"User: {q}\nAssistant: {a}\n\n"
 
         summary_prompt += "Provide a concise summary while keeping important details."
-
         try:
-            # Create a new model instance for the summary model
-            summary_client = client
-            response = summary_client.models.generate_content(
-                model=summary_model,
-                contents=summary_prompt
-            )
-            return response.text
+            if config.ollama.enabled:
+                response = ollama_client.chat([{"role": "user", "content": summary_prompt}])
+                return response.message.content
+            else:
+                summary_client = gemini_client
+                response = summary_client.models.generate_content(
+                    model=summary_model,
+                    contents=summary_prompt
+                )
+                return response.text
         except Exception as e:
             print(f"Error generating summary: {str(e)}")
             return None
+
 
     def summarize_chat_history(self, max_history_pairs: int = 1):  # ← Add parameter
         """
@@ -219,13 +237,22 @@ class ChatHistoryManager:
         Return the summarized conversation (in JSON format with 'user' and 'assistant' pairs):
         """
         try:
-            # Create a new model instance for the summary model
-            summary_client = self.client
-            response = summary_client.models.generate_content(
-                model=self.summary_model,
-                contents=prompt
-            )
-            summarized_pairs = response.text
+            if config.ollama.enabled:
+                response = self.ollama_client.chat(prompt)
+                summarized_pairs = response.message.content
+            else:
+                # Create a new model instance for the summary model
+                summary_client = self.gemini_client
+
+                response = summary_client.models.generate_content(
+                    model=self.summary_model,
+                    contents=prompt
+                )
+                summarized_pairs = response.text
+
+            if not summarized_pairs:
+                raise ValueError("Empty response from LLM.")
+            
             summarized_pairs = json.loads(summarized_pairs)
 
             # ✅ If the output is a single dictionary, wrap it in a list

@@ -1,0 +1,42 @@
+[
+    {
+        "type": "function",
+        "function": {
+            "name": "add_user_info_to_database",
+            "description": "Update the user's information in the database",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "name": {"type": "string", "description": "User's first name"},
+                    "last_name": {"type": "string", "description": "User's last name"},
+                    "age": {"type": "integer", "description": "User's age"},
+                    "gender": {"type": "string", "description": "User's gender"},
+                    "location": {"type": "string", "description": "User's location"},
+                    "occupation": {"type": "string", "description": "User's occupation"},
+                    "interests": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "List of user's interests"
+                    }
+                }
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "search_chat_history",
+            "description": "Search through the user's chat history for relevant information",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "search_term": {
+                        "type": "string",
+                        "description": "The term or phrase to search for in the chat history"
+                    }
+                },
+                "required": ["search_term"]
+            }
+        }
+    }
+]
