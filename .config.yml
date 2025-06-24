@@ -47,9 +47,22 @@ vectordb_config:
   embedding_model: "gemini-embedding-exp"
   k: 5
 
+# oauth_config is the top-level key for configuring OAuth authentication
+oauth_config:
+  enabled: true
+  provider: "google"
+  # set client_id and client_secret in .env file using GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET
+  client_id: ""
+  client_secret: ""
+  redirect_uri: "http://localhost:8501"
+  scope: "openid email profile"
+  auth_endpoint: "https://accounts.google.com/o/oauth2/v2/auth"
+  token_endpoint: "https://oauth2.googleapis.com/token"
+  userinfo_endpoint: "https://www.googleapis.com/oauth2/v3/userinfo"
+
 # chatbot determines the chatbot loaded during project execution
 chatbot:
-  #type: "basic"
+  # type: "basic"
   type: "basic_memory"
   # type: "agentic"
   # type: "semantic"

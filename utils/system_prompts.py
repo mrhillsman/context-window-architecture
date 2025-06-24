@@ -80,13 +80,13 @@ def system_prompt_for_agentic_ui_chat(user_info: str, chat_summary: str, chat_hi
 
     ### Keys for Updating the User's Information:
 
-    - name: str
-    - last_name: str
-    - age: int
-    - gender: str
-    - location: str
-    - occupation: str
-    - interests: list[str]
+    - user_id: str (Google OAuth user ID)
+    - email: str (User's email address)
+    - name: str (User's full name)
+    - given_name: str (User's given/first name)
+    - family_name: str (User's family/last name)
+    - picture: str (URL to user's profile picture)
+    - verified_email: bool (Whether the email is verified)
 
     ### Guidelines for Handling User Information Updates:
 

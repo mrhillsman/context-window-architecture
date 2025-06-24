@@ -4,3 +4,5 @@
 
 db
 tmp
+
+**/__pycache__

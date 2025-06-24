@@ -1,4 +1,5 @@
 import sqlite3
+from typing import Any
 
 class SQLManager:
     """
@@ -14,7 +15,7 @@ class SQLManager:
         """
         self.db_path = db_path
 
-    def execute_query(self, query: str, params: tuple = (), fetch_one: bool = False, fetch_all: bool = False) -> list:
+    def execute_query(self, query: str, params: tuple = (), fetch_one: bool = False, fetch_all: bool = False) -> list|Any:
         """
         Executes an SQL query with optional parameters and fetch options.
 

@@ -12,6 +12,7 @@ Features:
     - Error handling with user-friendly messages
     - Chat statistics and connection status
     - Clear chat history functionality
+    - Google OIDC authentication
 
 Requirements:
     - streamlit>=1.45.1
@@ -48,6 +49,7 @@ from utils.sqldb_manager import SQLManager
 from utils.system_prompts import system_prompt_for_basic_ui_chat_with_memory
 from utils.user_manager import UserManager
 from utils.ollama_manager import OllamaManager
+from utils.auth_manager import AuthManager
 
 with open(here('.config.yml'), 'r') as file:
     config = Box(yaml.safe_load(file))
@@ -98,6 +100,10 @@ def init_session_state() -> None:
 
     if 'chat_history_manager' not in st.session_state:
         st.session_state.chat_history_manager = None
+
+    # Initialize auth manager
+    if 'auth_manager' not in st.session_state:
+        st.session_state.auth_manager = AuthManager(st.session_state.user_manager)
 
 
 def initialize_gemini(api_key: str) -> bool:
@@ -225,6 +231,33 @@ def get_ollama_response(prompt: str) -> str:
         return f"❌ Error: {str(e)}"
 
 
+def handle_oauth_callback():
+    """Handle OAuth callback from URL parameters."""
+    # Check if we have OAuth callback parameters
+    query_params = st.query_params
+    
+    if 'code' in query_params and 'state' in query_params:
+        # Construct the callback URL manually since Streamlit doesn't provide get_current_url
+        # We'll use the query parameters directly
+        code = query_params['code']
+        state = query_params['state']
+        
+        # Handle the OAuth callback using the auth manager
+        auth_manager = st.session_state.auth_manager
+        
+        # Create a mock URL for the callback (the auth manager will extract params)
+        callback_url = f"?code={code}&state={state}"
+        
+        if auth_manager.handle_oauth_callback(callback_url):
+            st.success("✅ Authentication successful!")
+            # Clear the URL parameters
+            st.query_params.clear()
+            st.rerun()
+        else:
+            st.error("❌ Authentication failed!")
+            st.query_params.clear()
+
+
 def main() -> None:
     """
     Main application function that sets up and runs the Streamlit chat interface.
@@ -251,16 +284,29 @@ def main() -> None:
     # Initialize all session state variables
     init_session_state()
 
+    # Handle OAuth callback if present
+    handle_oauth_callback()
+
+    # Check authentication
+    auth_manager = st.session_state.auth_manager
+    
+    # If OAuth is enabled and user is not authenticated, show login page
+    if config.oauth_config.enabled and not auth_manager.is_authenticated():
+        auth_manager.render_login_page()
+        return
+
     # Use managers from the session state
     sqldb_manager = st.session_state.sqldb_manager
     user_manager = st.session_state.user_manager
-
-    
 
     # === SIDEBAR CONFIGURATION ===
     with st.sidebar:
         st.title("⚙️ Settings")
         st.info("Chatbot: Basic with LTM")
+
+        # Render user info if authenticated
+        if config.oauth_config.enabled:
+            auth_manager.render_user_info()
 
         # API Key Configuration Section
         st.subheader("🔑 API Configuration")

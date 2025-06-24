@@ -12,6 +12,7 @@ Features:
     - Error handling with user-friendly messages
     - Chat statistics and connection status
     - Clear chat history functionality
+    - Google OIDC authentication with session tracking
 
 Environment Setup:
     Option 1: Set environment variable
@@ -37,9 +38,10 @@ from pyprojroot import here
 from google import genai
 import streamlit as st
 
-from ollama import Client
 from utils.ollama_manager import OllamaManager
-
+from utils.auth_manager import AuthManager
+from utils.user_manager import UserManager
+from utils.sqldb_manager import SQLManager
 
 with open(here('.config.yml'), 'r') as file:
     config = Box(yaml.safe_load(file))
@@ -56,6 +58,11 @@ def init_session_state() -> None:
         - gemini_api_key (str): User's Gemini API key
         - model (GenerativeModel): Initialized Gemini model instance
         - chat (ChatSession): Active chat session with the model
+        - session_id (str): Unique session identifier
+        - ollama (OllamaManager): Ollama manager instance
+        - sqldb_manager (SQLManager): Database manager instance
+        - user_manager (UserManager): User manager instance
+        - auth_manager (AuthManager): Authentication manager instance
     
     Returns:
         None
@@ -80,6 +87,17 @@ def init_session_state() -> None:
     # Initialize ollama manager
     if 'ollama' not in st.session_state:
         st.session_state.ollama = None
+
+    # Initialize managers in the session state
+    if 'sqldb_manager' not in st.session_state:
+        st.session_state.sqldb_manager = SQLManager(f'{config.db.sql.dir}/{config.db.sql.file}')
+
+    if 'user_manager' not in st.session_state:
+        st.session_state.user_manager = UserManager(st.session_state.sqldb_manager)
+
+    # Initialize auth manager
+    if 'auth_manager' not in st.session_state:
+        st.session_state.auth_manager = AuthManager(st.session_state.user_manager)
 
 
 def initialize_gemini(api_key: str) -> bool:
@@ -199,6 +217,33 @@ def get_ollama_response(prompt: str) -> str:
         return f"❌ Error: {str(e)}"
 
 
+def handle_oauth_callback():
+    """Handle OAuth callback from URL parameters."""
+    # Check if we have OAuth callback parameters
+    query_params = st.query_params
+    
+    if 'code' in query_params and 'state' in query_params:
+        # Construct the callback URL manually since Streamlit doesn't provide get_current_url
+        # We'll use the query parameters directly
+        code = query_params['code']
+        state = query_params['state']
+        
+        # Handle the OAuth callback using the auth manager
+        auth_manager = st.session_state.auth_manager
+        
+        # Create a mock URL for the callback (the auth manager will extract params)
+        callback_url = f"?code={code}&state={state}"
+        
+        if auth_manager.handle_oauth_callback(callback_url):
+            st.success("✅ Authentication successful!")
+            # Clear the URL parameters
+            st.query_params.clear()
+            st.rerun()
+        else:
+            st.error("❌ Authentication failed!")
+            st.query_params.clear()
+
+
 def main() -> None:
     """
     Main application function that sets up and runs the Streamlit chat interface.
@@ -225,10 +270,29 @@ def main() -> None:
     # Initialize all session state variables
     init_session_state()
 
+    # Handle OAuth callback if present
+    handle_oauth_callback()
+
+    # Check authentication
+    auth_manager = st.session_state.auth_manager
+    
+    # If OAuth is enabled and user is not authenticated, show login page
+    if config.oauth_config.enabled and not auth_manager.is_authenticated():
+        auth_manager.render_login_page()
+        return
+
+    # Use managers from the session state
+    sqldb_manager = st.session_state.sqldb_manager
+    user_manager = st.session_state.user_manager
+
     # === SIDEBAR CONFIGURATION ===
     with st.sidebar:
         st.title("⚙️ Settings")
         st.info("Chatbot: Basic")
+
+        # Render user info if authenticated
+        if config.oauth_config.enabled:
+            auth_manager.render_user_info()
 
         # API Key Configuration Section
         st.subheader("🔑 API Configuration")
@@ -308,9 +372,6 @@ def main() -> None:
         elif not st.session_state.chat and not config.ollama.enabled:
             st.error("❌ Gemini not initialized. Please check your API key.")
         else:
-            # Add a user message to the chat history
-            # st.session_state.messages.append({"role": "user", "content": prompt})
-
             # Display a user message immediately
             with st.chat_message("user"):
                 st.markdown(prompt)
@@ -324,13 +385,10 @@ def main() -> None:
                         # Get a response from the Gemini model
                         response = get_gemini_response(prompt)
                     st.markdown(response)
-
-            # Add prompt and response to chat history for context
-            st.session_state.messages.append({"role": "user", "content": prompt})
-            st.session_state.messages.append({"role": "assistant", "content": response})
-            print(st.session_state.messages)
+                    # Add user prompt and assistant response to chat for user visibility
+                    st.session_state.messages.append({"role": "user", "content": prompt})
+                    st.session_state.messages.append({"role": "assistant", "content": response})
 
 
-# Entry point for the application
 if __name__ == "__main__":
     main()

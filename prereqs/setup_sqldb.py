@@ -40,13 +40,16 @@ def create_user_info():
     Database Structure:
         user_info table:
             - id (INTEGER, PRIMARY KEY): Auto-incrementing unique identifier
-            - name (TEXT, NOT NULL): User's first name
-            - last_name (TEXT, NOT NULL): User's last name
-            - occupation (TEXT, NOT NULL): User's job/profession
-            - location (TEXT, NOT NULL): User's geographic location
-            - age (INTEGER, NULLABLE): User's age (optional)
-            - gender (TEXT, NULLABLE): User's gender (optional)
-            - interests (TEXT, NULLABLE): User's interests/hobbies (optional)
+            - user_id (TEXT): Google OAuth user ID
+            - email (TEXT): Google OAuth email
+            - name (TEXT): Google OAuth name
+            - given_name (TEXT): Google OAuth given name
+            - family_name (TEXT): Google OAuth family name
+            - picture (TEXT): Google OAuth profile picture
+            - verified_email (BOOLEAN, DEFAULT FALSE): Email verification status
+            - last_login (DATETIME): Last login timestamp
+            - session_token (TEXT): Session token for persistent login
+            - session_expires (DATETIME): Session expiration timestamp
 
         chat_history table:
             - id (INTEGER, PRIMARY KEY): Auto-incrementing unique identifier
@@ -65,13 +68,6 @@ def create_user_info():
 
     Database Location:
         The database file is created at: {project_root}/db/store.db
-
-    Sample Data:
-        Creates a default user "Melvin Hillsman" if no users exist, with:
-        - Name: Melvin Hillsman
-        - Occupation: Principal Software Engineer
-        - Location: USA
-        - Age, gender, interests: NULL (to be filled by chatbot)
 
     Raises:
         OSError: If the data directory cannot be created
@@ -106,13 +102,16 @@ def create_user_info():
         cursor.executescript("""
         CREATE TABLE IF NOT EXISTS user_info (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            last_name TEXT NOT NULL,
-            occupation TEXT NOT NULL,
-            location TEXT NOT NULL,
-            age INTEGER,  -- Allow NULL values (chatbot can fill later)
-            gender TEXT,  -- Allow NULL values (chatbot can fill later)
-            interests TEXT  -- Allow NULL values (chatbot can fill later)
+            user_id TEXT,  -- Google OAuth user ID
+            email TEXT,  -- Google OAuth email
+            name TEXT,  -- Google OAuth name
+            given_name TEXT,  -- Google OAuth given name
+            family_name TEXT,  -- Google OAuth family name
+            picture TEXT,  -- Google OAuth profile picture
+            verified_email BOOLEAN DEFAULT FALSE,  -- Email verification status
+            last_login DATETIME,  -- Last login timestamp
+            session_token TEXT,  -- Session token for persistent login
+            session_expires DATETIME  -- Session expiration timestamp
         );
 
         CREATE TABLE IF NOT EXISTS chat_history (
@@ -133,15 +132,6 @@ def create_user_info():
             timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES user_info(id)
         );
-        """)
-
-        # Insert a sample user if no users exist in the database
-        # This provides a default user for testing and initial setup
-        # Uses a conditional INSERT to avoid duplicates
-        cursor.execute("""
-        INSERT INTO user_info (name, last_name, occupation, location, age, gender, interests)
-        SELECT 'Melvin', 'Hillsman', 'Principal Software Engineer', 'USA', NULL, NULL, NULL
-        WHERE NOT EXISTS (SELECT 1 FROM user_info);
         """)
 
         # Commit all changes to the database

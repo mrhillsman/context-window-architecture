@@ -7,17 +7,13 @@
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "name": {"type": "string", "description": "User's first name"},
-                    "last_name": {"type": "string", "description": "User's last name"},
-                    "age": {"type": "integer", "description": "User's age"},
-                    "gender": {"type": "string", "description": "User's gender"},
-                    "location": {"type": "string", "description": "User's location"},
-                    "occupation": {"type": "string", "description": "User's occupation"},
-                    "interests": {
-                        "type": "array",
-                        "items": {"type": "string"},
-                        "description": "List of user's interests"
-                    }
+                    "user_id": {"type": "string", "description": "Google OAuth user ID"},
+                    "email": {"type": "string", "description": "User's email address"},
+                    "name": {"type": "string", "description": "User's full name"},
+                    "given_name": {"type": "string", "description": "User's given/first name"},
+                    "family_name": {"type": "string", "description": "User's family/last name"},
+                    "picture": {"type": "string", "description": "URL to user's profile picture"},
+                    "verified_email": {"type": "boolean", "description": "Whether the email is verified"}
                 }
             }
         }

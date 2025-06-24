@@ -30,6 +30,7 @@ from utils.sqldb_manager import SQLManager
 from utils.system_prompt import system_prompt_for_agentic_ui_chat
 from utils.user_manager import UserManager
 from utils.search_manager import SearchManager
+from typing import Optional
 
 
 with open(here('.config.yml'), 'r') as file:
@@ -79,25 +80,25 @@ def search_chat_history(search_term: str) -> dict:
 
 
 def add_user_info_to_database(
-    name: str = None,
-    last_name: str = None,
-    age: int = None,
-    gender: str = None,
-    location: str = None,
-    occupation: str = None,
-    interests: list[str] = None
+    user_id: Optional[str] = None,
+    email: Optional[str] = None,
+    name: Optional[str] = None,
+    given_name: Optional[str] = None,
+    family_name: Optional[str] = None,
+    picture: Optional[str] = None,
+    verified_email: Optional[bool] = None
 ) -> dict:
     """
     Update the user's information in the database.
 
     Args:
-        name: User's first name
-        last_name: User's last name
-        age: User's age
-        gender: User's gender
-        location: User's location
-        occupation: User's occupation
-        interests: List of user's interests
+        user_id: Google OAuth user ID
+        email: User's email address
+        name: User's full name
+        given_name: User's given/first name
+        family_name: User's family/last name
+        picture: URL to user's profile picture
+        verified_email: Whether the email is verified
 
     Returns:
         A dictionary containing the update status and message
@@ -106,20 +107,20 @@ def add_user_info_to_database(
     if user_manager:
         # Build user_info dict with only non-None values
         user_info = {}
+        if user_id is not None:
+            user_info["user_id"] = user_id
+        if email is not None:
+            user_info["email"] = email
         if name is not None:
             user_info["name"] = name
-        if last_name is not None:
-            user_info["last_name"] = last_name
-        if age is not None:
-            user_info["age"] = age
-        if gender is not None:
-            user_info["gender"] = gender
-        if location is not None:
-            user_info["location"] = location
-        if occupation is not None:
-            user_info["occupation"] = occupation
-        if interests is not None:
-            user_info["interests"] = interests
+        if given_name is not None:
+            user_info["given_name"] = given_name
+        if family_name is not None:
+            user_info["family_name"] = family_name
+        if picture is not None:
+            user_info["picture"] = picture
+        if verified_email is not None:
+            user_info["verified_email"] = verified_email
 
         if not user_info:
             return {
@@ -300,7 +301,7 @@ You have access to these functions:
    - The search_term should be a clear, specific keyword or phrase
    - Returns matching conversations with questions, answers, and timestamps
 
-2. add_user_info_to_database(name: str = None, last_name: str = None, age: int = None, gender: str = None, location: str = None, occupation: str = None, interests: list[str] = None) - Update user information
+2. add_user_info_to_database(user_id: str = None, email: str = None, name: str = None, given_name: str = None, family_name: str = None, picture: str = None, verified_email: bool = None) - Update user information
    - Use this when the user wants to update their personal information
    - Only include the fields that need to be updated
    - All parameters are optional
@@ -318,7 +319,7 @@ Examples:
 - User: "What did we discuss about Python?" → {"function": "search_chat_history", "arguments": {"search_term": "Python"}}
 - User: "Do you remember our conversation about machine learning?" → {"function": "search_chat_history", "arguments": {"search_term": "machine learning"}}
 - User: "Update my name to John" → {"function": "add_user_info_to_database", "arguments": {"name": "John"}}
-- User: "I'm 30 years old and live in New York" → {"function": "add_user_info_to_database", "arguments": {"age": 30, "location": "New York"}}
+- User: "My email is john@example.com" → {"function": "add_user_info_to_database", "arguments": {"email": "john@example.com"}}
 
 Do not include any other text when calling a function. After receiving the function result, provide a natural response to the user based on the result.
 """
